@@ -9,6 +9,7 @@ editor_options:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
+library(gganimate)
 ```
 
 
@@ -32,6 +33,61 @@ There is no dataset for this project. You have to simulate from scratch!
 ![Lightning](assignment_7_example/example_lightning.png)
 
 ```{r}
+height <- 500
+step_size <- 2
 
+main_y <- seq(from = height, to = 0, by = -1)
+
+set.seed(42)
+main_x_steps <- rnorm(n = length(main_y), mean = 0, sd = step_size)
+
+main_x <- cumsum(main_x_steps)
+
+main_bolt <- tibble(
+  x = main_x,
+  y = main_y,
+  type = "Main",
+  id = "Main"
+)
+
+fork_triggers <- main_bolt %>% 
+  mutate(random_chance = runif(n())) %>% 
+  filter(random_chance < 0.01 & y > 50)
+
+make_branch <- function(start_x, start_y, branch_id) {
+  branch_y <- seq(from = start_y, to = 0, by = -1)
+  branch_x_steps <- rnorm(n = length(branch_y), mean = 0, sd = step_size)
+  branch_x <- start_x + cumsum(branch_x_steps)
+  tibble(
+    x = branch_x,
+    y = branch_y,
+    type = "Fork",
+    id = paste0("Fork_", branch_id)
+  )
+}
+
+forks_data <- fork_triggers %>% 
+  mutate(branch_id = row_number()) %>% 
+  select(start_x = x, start_y = y, branch_id) %>% 
+  pmap_dfr(make_branch)
+
+lightning_data <- bind_rows(main_bolt, forks_data)
+
+static_plot <- ggplot(lightning_data, aes(x = x, y = y, group = id)) +
+  geom_path(color = "cyan", size = 2, alpha = 0.3) +
+  geom_path(color = "white", size = 0.5) +
+  theme_void() +
+  theme(
+    plot.background = element_rect(fill = "black"),
+    panel.background = element_rect(fill = "black")
+  ) +
+  coord_fixed(ratio = 0.5)
+
+print(static_plot)
+
+anim <- static_plot + 
+  transition_reveal(-y)
+
+animate(anim, height = 600, width = 400, fps = 20, duration = 5)
 ```
 
